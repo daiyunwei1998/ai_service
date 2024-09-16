@@ -1,17 +1,19 @@
 from pydantic import BaseModel
-from langchain_openai import OpenAI, OpenAIEmbeddings
+from openai import OpenAI
+
 from pymilvus import Collection, connections
 from app.core.config import settings
-from langchain import PromptTemplate
-
+from langdetect import detect
 from app.core.database import get_db
 from app.services.tenant_prompt_service import get_template_by_id
+from app.core.config import settings
 
-
+client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
 PROMPT_TEMPLATE = """
 CONTEXT:
 You are a customer service AI assistant. Your goal is to provide helpful, accurate, and friendly responses to customer inquiries using the information provided in the DOCUMENT.
+You must answer in user's language. User's language: {language}.
 
 DOCUMENT:
 {document}
@@ -34,24 +36,22 @@ INSTRUCTIONS:
 9. If the inquiry is too complex or requires human intervention, politely explain that you'll need to escalate the issue to a human agent and provide instructions on how to do so.
 """
 
-
-# Initialize the OpenAI language model
-llm = OpenAI(api_key=settings.OPENAI_API_KEY)
+# Initialize the OpenAI API client with the API key
 
 # Initialize connection to Milvus
 connections.connect("default", host=settings.MILVUS_HOST, port=settings.MILVUS_PORT)
-
-# Initialize the embedding model
-embeddings = OpenAIEmbeddings(api_key=settings.OPENAI_API_KEY, model="text-embedding-ada-002")
 
 # Define the query input model
 class QueryModel(BaseModel):
     query: str
 
-def embed_query(query: str):
-    return embeddings.embed_query(query)
+def embed_query(query: str) -> list:
+    # Use OpenAI API to generate embeddings for the query
+    response = client.embeddings.create(model=settings.EMBEDDING_MODEL,
+    input=query)
+    return response.data[0].embedding
 
-def search_vectors_in_tenant_db(query: str, tenant_id:str) -> list:
+def search_vectors_in_tenant_db(query: str, tenant_id: str) -> list:
     # Step 1: Generate embedding for the query
     query_embedding = embed_query(query)
 
@@ -62,7 +62,6 @@ def search_vectors_in_tenant_db(query: str, tenant_id:str) -> list:
         "params": {"nprobe": 10}
     }
 
-
     # Step 3: Perform the search, explicitly requesting the "content" field in the output
     collection = Collection(tenant_id)
     results = collection.search(
@@ -70,7 +69,7 @@ def search_vectors_in_tenant_db(query: str, tenant_id:str) -> list:
         anns_field="embedding",  # Field where vector embeddings are stored
         param=search_params,     # Search parameters using cosine similarity
         limit=5,                 # Limit the number of results
-        output_fields=["content"]  # Specify "content" field to retrieve
+        output_fields=["content"]
     )
 
     # Step 4: Process search results
@@ -79,34 +78,49 @@ def search_vectors_in_tenant_db(query: str, tenant_id:str) -> list:
     print("Search Results: ", contents)
     return contents
 
-# Function to handle the RAG pipeline
+def detect_language(text: str) -> str:
+    try:
+        return detect(text)
+    except:
+        return "zh-tw"
+
+# Function to handle the RAG pipeline using OpenAI SDK
 def rag_pipeline(query: str, tenant_id: str) -> str:
-    # Step 1: Retrieve relevant documents from the vector database using vector search
+    # Detect the language of the query
+    detected_lang = detect_language(query)
+
+    # Retrieve relevant documents from the vector database using vector search
     relevant_docs = search_vectors_in_tenant_db(query, tenant_id=tenant_id)
 
-    # Step 2: Combine retrieved documents into a context string
+    # Combine retrieved documents into a context string
     context = "\n".join(relevant_docs)
 
-    # Step 3: Use the LLM to generate a response, incorporating the context
+    # Fetch the tenant-specific prompt template from the database
     db_session = next(get_db())
     tenant_prompt_template = get_template_by_id(db=db_session, template_id=1)
     db_session.close()
 
     PROMPT_TEMPLATE = tenant_prompt_template.prompt_template
-    INPUT_VARIABLES = tenant_prompt_template.variables
-    print(PROMPT_TEMPLATE)
-    print(INPUT_VARIABLES)
-    PROMPT = PromptTemplate(
-        input_variables=INPUT_VARIABLES,
-        template=PROMPT_TEMPLATE,
-    )
 
-    print("no\n\n")
+    # Construct the final prompt by combining template and query data
+    prompt = PROMPT_TEMPLATE.format(document=context,language = detected_lang,question=query)
 
+    messages = [
+        {"role": "system", "content":prompt },
+        {"role": "user", "content": query},
+    ]
+    # Call OpenAI GPT to generate the response
+    response = client.chat.completions.create(model="gpt-4",
+    messages = messages, temperature= 0)
 
-    prompt = PROMPT.invoke({"document":context, "question":query})
-    print(prompt)
-    # Generate the response using the LLM
-    response = llm(prompt.to_string())
+    if response.choices:
+        return response.choices[0].message.content
+    else:
+        return "Sorry, I couldn't generate a response."
 
-    return response
+# Example usage
+if __name__ == "__main__":
+    query = "Google Nest mini當機怎麼重設"
+    tenant_id = "tenant_1"
+    response = rag_pipeline(query, tenant_id)
+    print(response)

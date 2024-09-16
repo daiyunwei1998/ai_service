@@ -5,6 +5,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     # OpenAI API Key
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    EMBEDDING_MODEL:str = "text-embedding-3-small"
     
     # Milvus Database Configuration
     MILVUS_HOST: str = os.getenv("MILVUS_HOST", "localhost")
