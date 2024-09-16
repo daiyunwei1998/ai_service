@@ -5,18 +5,28 @@ from aio_pika import connect_robust, ExchangeType, Message, DeliveryMode
 from aio_pika.abc import AbstractIncomingMessage
 from pydantic import BaseModel
 from typing import Optional
-from config import (
-    RABBITMQ_HOST,
-    RABBITMQ_PORT,
-    RABBITMQ_USERNAME,
-    RABBITMQ_PASSWORD,
-    TENANT_ID,
-    TOPIC_EXCHANGE_NAME,
-    AI_MESSAGE_QUEUE,
-    SESSION_QUEUE_TEMPLATE
-)
+from app.core.config import settings
+from app.api.v1.tenant_prompts import router as tenant_prompt_router
+from app.api.v1.rag import router as rag_router
+from app.core.database import engine, Base
 
-app = FastAPI(title="FastAPI Chat Listener Service")
+
+
+
+RABBITMQ_HOST = settings.RABBITMQ_HOST
+RABBITMQ_PORT = settings.RABBITMQ_PORT
+RABBITMQ_USERNAME = settings.RABBITMQ_USERNAME
+RABBITMQ_PASSWORD = settings.RABBITMQ_PASSWORD
+TENANT_ID = settings.TENANT_ID
+TOPIC_EXCHANGE_NAME = settings.TOPIC_EXCHANGE_NAME
+AI_MESSAGE_QUEUE = settings.AI_MESSAGE_QUEUE
+SESSION_QUEUE_TEMPLATE = settings.SESSION_QUEUE_TEMPLATE
+
+app = FastAPI(title="AI Service")
+app.include_router(tenant_prompt_router, prefix="/api/v1/tenant_prompts", tags=["Tenant Prompts"])
+app.include_router(rag_router, prefix="/api/v1/rag", tags=["RAG"])
+# Create the tables in the database
+Base.metadata.create_all(bind=engine)
 
 # In-memory store for received messages (for prototype)
 received_messages = []
