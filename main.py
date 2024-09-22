@@ -1,16 +1,22 @@
 import asyncio
 import json
+
+import uvicorn
 from fastapi import FastAPI, HTTPException, Depends
 from aio_pika import connect_robust, ExchangeType, Message, DeliveryMode
 from aio_pika.abc import AbstractIncomingMessage
 from pydantic import BaseModel
 from typing import Optional
+
+from starlette.middleware.cors import CORSMiddleware
+
 from app.core.config import settings
 from app.api.v1.tenant_prompts import router as tenant_prompt_router
 from app.api.v1.rag import router as rag_router
 from app.core.database import engine, Base
 from app.services.rag_service import rag_pipeline
 from contextlib import asynccontextmanager
+from app.core.prompt import PROMPT_TEMPLATE
 
 RABBITMQ_HOST = settings.RABBITMQ_HOST
 RABBITMQ_PORT = settings.RABBITMQ_PORT
@@ -19,6 +25,7 @@ RABBITMQ_PASSWORD = settings.RABBITMQ_PASSWORD
 TOPIC_EXCHANGE_NAME = settings.TOPIC_EXCHANGE_NAME
 SESSION_QUEUE_TEMPLATE = settings.SESSION_QUEUE_TEMPLATE
 AI_MESSAGE_QUEUE = settings.AI_MESSAGE_QUEUE
+RAG_PROMPT_TEMPLATE = PROMPT_TEMPLATE
 
 # In-memory store for received messages (for prototype)
 received_messages = []
@@ -68,6 +75,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="AI Service", lifespan=lifespan)
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins
+    allow_credentials=True,  # Allow credentials (e.g., cookies, authorization headers)
+    allow_methods=["*"],  # Allow all HTTP methods (GET, POST, PUT, DELETE, etc.)
+    allow_headers=["*"],  # Allow all headers (Authorization, Content-Type, etc.)
+)
+
 # Create the tables in the database
 Base.metadata.create_all(bind=engine)
 
@@ -101,7 +116,7 @@ async def send_reply_message(received_msg: ReceivedMessage):
     Sends a reply message back to the customer with modified sender and SourceType.
     Utilizes the default exchange for direct messaging to user queues.
     """
-    reply_content: str = rag_pipeline(received_msg.content, received_msg.tenant_id)
+    reply_content: str = rag_pipeline(received_msg.content, received_msg.tenant_id, RAG_PROMPT_TEMPLATE )
 
     reply_message = {
         "session_id": received_msg.session_id,
@@ -146,3 +161,6 @@ async def get_status():
 @app.get("/messages", summary="Retrieve all received messages")
 async def get_messages():
     return received_messages
+
+if __name__ == '__main__':
+    uvicorn.run(app="main:app", host="127.0.0.1", port=8001, reload=True)
