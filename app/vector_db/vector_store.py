@@ -12,13 +12,13 @@ embeddings = OpenAIEmbeddings(api_key=settings.OPENAI_API_KEY)
 def embed_query(query: str):
     return embeddings.embed(query)
 
-def search_vectors(query: str) -> list:
-    query_embedding = embed_query(query)
-
-    search_params = {
-        "metric_type": "COSINE",
-        "params": {"nprobe": 10}
-    }
-    results = collection.search([query_embedding], "embedding", search_params, limit=5)
-
-    return [res.entity.get("content") for res in results]
+# def search_vectors_in_tenant_dbctors(query: str) -> list:
+#     query_embedding = embed_query(query)
+#
+#     search_params = {
+#         "metric_type": "COSINE",
+#         "params": {"nprobe": 10}
+#     }
+#     results = collection.search([query_embedding], "embedding", search_params, limit=5)
+#
+#     return [res.entity.get("content") for res in results]
