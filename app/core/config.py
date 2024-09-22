@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     MILVUS_PORT: int = os.getenv("MILVUS_PORT", 19530)
 
     # Rabbit MQ
-    RABBITMQ_HOST: str = "203.204.185.67" #"localhost"
+    RABBITMQ_HOST: str = "localhost" #"203.204.185.67"
     RABBITMQ_PORT: int = 5672
     RABBITMQ_USERNAME: str = "root"
     RABBITMQ_PASSWORD:str = "admin1234"
