@@ -103,6 +103,7 @@ async def on_message_received(message: AbstractIncomingMessage):
             received_messages.append(received_msg)
 
             # Send the AI reply
+            await send_acknowledgement_message(received_msg)
             await send_reply_message(received_msg)
 
         except json.JSONDecodeError:
@@ -110,19 +111,16 @@ async def on_message_received(message: AbstractIncomingMessage):
         except Exception as e:
             print(f"[!] Error processing message: {e}")
 
-
-async def send_reply_message(received_msg: ReceivedMessage):
+async def publish_message_to_queue(received_msg: ReceivedMessage, message_type: str, content: str = ""):
     """
-    Sends a reply message back to the customer with modified sender and SourceType.
-    Utilizes the default exchange for direct messaging to user queues.
+    Helper method to publish a message to the user's queue.
+    This method handles message creation, queue declaration, and message publishing.
     """
-    reply_content: str = rag_pipeline(received_msg.content, received_msg.tenant_id, RAG_PROMPT_TEMPLATE )
-
     reply_message = {
         "session_id": received_msg.session_id,
         "sender": "ai",
-        "content": reply_content,
-        "type": "reply",
+        "content": content,
+        "type": message_type,
         "tenant_id": received_msg.tenant_id,
         "user_type": "AI",
         "SourceType": "AI",
@@ -138,7 +136,7 @@ async def send_reply_message(received_msg: ReceivedMessage):
         user_queue_name, durable=True
     )
 
-    # Publish the reply message to the default exchange
+    # Publish the message to the default exchange
     await app.state.channel.default_exchange.publish(
         Message(
             body=json.dumps(reply_message).encode(),
@@ -147,7 +145,25 @@ async def send_reply_message(received_msg: ReceivedMessage):
         routing_key=user_queue_name  # Routing key is the queue name
     )
 
-    print(f"[<] Sent reply to user queue: {user_queue_name}")
+    print(f"[<] Sent {message_type} message to user queue: {user_queue_name}")
+
+
+async def send_reply_message(received_msg: ReceivedMessage):
+    """
+    Sends a reply message back to the customer with modified sender and SourceType.
+    Utilizes the default exchange for direct messaging to user queues.
+    """
+    reply_content: str = rag_pipeline(received_msg.content, received_msg.tenant_id, RAG_PROMPT_TEMPLATE)
+    await publish_message_to_queue(received_msg, "reply", reply_content)
+
+
+async def send_acknowledgement_message(received_msg: ReceivedMessage):
+    """
+    Sends an acknowledgement message back to the customer to notify AI processing state.
+    Utilizes the default exchange for direct messaging to user queues.
+    """
+    await publish_message_to_queue(received_msg, "acknowledgement")
+
 
 
 @app.get("/status", summary="Check if messages have been received")
