@@ -103,7 +103,7 @@ async def on_message_received(message: AbstractIncomingMessage):
             received_messages.append(received_msg)
 
             # Send the AI reply
-            await send_acknowledgement_message(received_msg)
+            await send_acknowledgement_message(received_msg)  
             await send_reply_message(received_msg)
 
         except json.JSONDecodeError:
@@ -154,7 +154,7 @@ async def send_reply_message(received_msg: ReceivedMessage):
     Utilizes the default exchange for direct messaging to user queues.
     """
     reply_content: str = rag_pipeline(received_msg.content, received_msg.tenant_id, RAG_PROMPT_TEMPLATE)
-    await publish_message_to_queue(received_msg, "reply", reply_content)
+    await publish_message_to_queue(received_msg, "CHAT", reply_content)
 
 
 async def send_acknowledgement_message(received_msg: ReceivedMessage):
@@ -162,7 +162,7 @@ async def send_acknowledgement_message(received_msg: ReceivedMessage):
     Sends an acknowledgement message back to the customer to notify AI processing state.
     Utilizes the default exchange for direct messaging to user queues.
     """
-    await publish_message_to_queue(received_msg, "acknowledgement")
+    await publish_message_to_queue(received_msg, "ACKNOWLEDGEMENT")
 
 
 
