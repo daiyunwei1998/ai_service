@@ -1,0 +1,73 @@
+name: Deploy AI Service to EC2
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - 'ai_service/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Cache pip packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-ai-${{ hashFiles('ai_service/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-ai-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r ai_service/requirements.txt
+
+      - name: Create PM2 ecosystem file
+        run: |
+          cat << EOF > ecosystem.config.js
+          module.exports = {
+            apps : [{
+              name: "ai-service",
+              script: "uvicorn",
+              args: "main:app --host 0.0.0.0 --port 8001",
+              interpreter: "python3",
+              cwd: "/home/matcha/ai_service",
+              env: {
+                NODE_ENV: "production",
+              },
+            }]
+          }
+          EOF
+
+      - name: Deploy to EC2
+        env:
+          PRIVATE_KEY: ${{ secrets.SSH_KEY }}
+        run: |
+          echo "$PRIVATE_KEY" > private_key.pem
+          chmod 600 private_key.pem
+          scp -o StrictHostKeyChecking=no -i private_key.pem -r ai_service ecosystem.config.js matcha@${{ secrets.SSH_HOST }}:~/ai_service
+          ssh -o StrictHostKeyChecking=no -i private_key.pem matcha@${{ secrets.SSH_HOST }} << 'EOF'
+            set -x
+            cd ~/ai_service
+            python3 -m venv venv
+            source venv/bin/activate
+            pip install -r requirements.txt
+            npm install -g pm2
+            pm2 delete ai-service || true
+            pm2 start ecosystem.config.js
+            pm2 save
+            pm2 startup systemd -u matcha --hp /home/matcha | tail -n 1 > startup_script.sh
+            chmod +x startup_script.sh
+            ./startup_script.sh
+            pm2 save
+          EOF
