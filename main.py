@@ -1,6 +1,6 @@
 import asyncio
 import json
-
+from datetime import datetime
 import uvicorn
 from fastapi import FastAPI, HTTPException, Depends
 from aio_pika import connect_robust, ExchangeType, Message, DeliveryMode
@@ -116,6 +116,7 @@ async def publish_message_to_queue(received_msg: ReceivedMessage, message_type: 
     Helper method to publish a message to the user's queue.
     This method handles message creation, queue declaration, and message publishing.
     """
+    current_timestamp = datetime.now(datetime.timezone.utc).isoformat()
     reply_message = {
         "session_id": received_msg.session_id,
         "sender": "ai",
@@ -125,6 +126,7 @@ async def publish_message_to_queue(received_msg: ReceivedMessage, message_type: 
         "user_type": "AI",
         "SourceType": "AI",
         "receiver": received_msg.sender,
+        "timestamp": current_timestamp
     }
 
     # Determine the user queue name based on session ID
