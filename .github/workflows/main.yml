@@ -40,21 +40,10 @@ jobs:
             python3 -m venv venv
             source venv/bin/activate
             pip install -r requirements.txt
-            sudo tee /etc/systemd/system/ai-service.service > /dev/null << EOT
-            [Unit]
-            Description=AI Service FastAPI Application
-            After=network.target
-
-            [Service]
-            User=matcha
-            WorkingDirectory=/home/matcha/ai_service
-            ExecStart=/home/matcha/ai_service/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8001
-            Restart=always
-
-            [Install]
-            WantedBy=multi-user.target
-            EOT
-            sudo systemctl daemon-reload
-            sudo systemctl enable ai-service
-            sudo systemctl restart ai-service
+            
+            # Reload systemd, enable and restart the service
+            # Using sudo -n to prevent password prompts
+            sudo -n systemctl daemon-reload
+            sudo -n systemctl enable ai-service
+            sudo -n systemctl restart ai-service
           EOF
