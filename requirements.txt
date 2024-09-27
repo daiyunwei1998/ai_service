@@ -13,4 +13,4 @@ langchain-openai
 tiktoken
 pymysql
 python-dotenv
-langdetect
+langid

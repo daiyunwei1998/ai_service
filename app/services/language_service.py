@@ -1,8 +1,8 @@
-from langdetect import detect
+import langid
 
 
 def detect_language(text: str) -> str:
     try:
-        return "zh-tw"#detect(text)
+        return langid.classify(text)
     except:
         return "zh-tw"
