@@ -4,7 +4,7 @@ on:
     branches:
       - dev
     paths:
-      - 'ai_service/**'
+      - '**'  # This will trigger on any file change in the repo
   workflow_dispatch:
 
 jobs:
@@ -23,7 +23,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-ai-${{ hashFiles('ai_service/requirements.txt') }}
+          key: ${{ runner.os }}-pip-ai-${{ hashFiles('requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-ai-
 
@@ -55,7 +55,7 @@ jobs:
         run: |
           echo "$PRIVATE_KEY" > private_key.pem
           chmod 600 private_key.pem
-          scp -o StrictHostKeyChecking=no -i private_key.pem -r ai_service ecosystem.config.js matcha@${{ secrets.SSH_HOST }}:~/ai_service
+          scp -o StrictHostKeyChecking=no -i private_key.pem -r ./* ecosystem.config.js matcha@${{ secrets.SSH_HOST }}:~/ai_service
           ssh -o StrictHostKeyChecking=no -i private_key.pem matcha@${{ secrets.SSH_HOST }} << 'EOF'
             set -x
             cd ~/ai_service
@@ -68,6 +68,6 @@ jobs:
             pm2 save
             pm2 startup systemd -u matcha --hp /home/matcha | tail -n 1 > startup_script.sh
             chmod +x startup_script.sh
-            ./startup_script.sh
+            sudo ./startup_script.sh
             pm2 save
           EOF
