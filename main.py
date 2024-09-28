@@ -101,7 +101,7 @@ async def on_message_received(message: AbstractIncomingMessage):
             # Decode and parse the incoming message
             msg_content = message.body.decode()
             msg_json = json.loads(msg_content)
-            print(f"[>] Received message: {msg_json}")
+            logging.info(f"[>] Received message: {msg_json}")
 
             # Validate and store the message
             received_msg = ReceivedMessage(**msg_json)
@@ -124,9 +124,9 @@ async def on_message_received(message: AbstractIncomingMessage):
             await mongodb_service.save_ai_reply(ai_reply)
 
         except json.JSONDecodeError:
-            print("[!] Failed to decode message")
+            logging.error("[!] Failed to decode message")
         except Exception as e:
-            print(f"[!] Error processing message: {e}")
+            logging.error(f"[!] Error processing message: {e}")
 
 async def publish_message_to_queue(received_msg: ReceivedMessage, message_type: str, content: str = ""):
     """
@@ -148,7 +148,7 @@ async def publish_message_to_queue(received_msg: ReceivedMessage, message_type: 
 
     # Determine the user queue name based on session ID
     user_queue_name = SESSION_QUEUE_TEMPLATE.format(session_id=received_msg.session_id)
-    print(f"Publishing message to default exchange with routing_key: {user_queue_name}")
+    logging.info(f"Publishing message to default exchange with routing_key: {user_queue_name}")
 
     # Ensure the user queue exists. If not, declare it.
     user_queue = await app.state.channel.declare_queue(
@@ -164,7 +164,7 @@ async def publish_message_to_queue(received_msg: ReceivedMessage, message_type: 
         routing_key=user_queue_name  # Routing key is the queue name
     )
 
-    print(f"[<] Sent {message_type} message to user queue: {user_queue_name}")
+    logging.info(f"[<] Sent {message_type} message to user queue: {user_queue_name}")
 
 
 async def send_reply_message(received_msg: ReceivedMessage):
