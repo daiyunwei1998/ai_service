@@ -113,7 +113,7 @@ async def on_message_received(message: AbstractIncomingMessage):
 
             # Save the AI reply to MongoDB
             ai_reply = AIReply(
-                original_message=received_msg.content,
+                receiver=received_msg.sender,
                 user_query=received_msg.content,  # Assuming the original message is the user query
                 ai_reply=reply_content,
                 total_tokens=total_tokens,  # Simple token count, replace with actual token counting logic
