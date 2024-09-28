@@ -173,8 +173,8 @@ async def send_reply_message(received_msg: ReceivedMessage):
     Utilizes the default exchange for direct messaging to user queues.
     """
     response = rag_pipeline(received_msg.content, received_msg.tenant_id, RAG_PROMPT_TEMPLATE)
-    reply_content = response.choices[0].message
-    token = response.usage.total_tokens
+    reply_content = response.choices[0].message['content']
+    token = response.usage['total_tokens']
     await publish_message_to_queue(received_msg, "CHAT", reply_content)
     return reply_content, token
 
