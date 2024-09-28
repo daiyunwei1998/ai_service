@@ -14,7 +14,7 @@ class MongoDBService:
         self.db = self.client[settings.DATABASE_NAME]
 
     async def get_tenant_collection(self, tenant_id: str):
-        collection_name = f"tenant_{tenant_id}_replies"
+        collection_name = f"{tenant_id}_replies"
         return self.db[collection_name]
 
     async def save_ai_reply(self, ai_reply: AIReply):
