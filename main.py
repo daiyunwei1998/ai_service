@@ -120,7 +120,7 @@ async def on_message_received(message: AbstractIncomingMessage):
                 tenant_id=received_msg.tenant_id
             )
 
-            await mongodb_service.ensure_indexe(received_msg.tenant_id)
+            await mongodb_service.ensure_index(received_msg.tenant_id)
             await mongodb_service.save_ai_reply(ai_reply)
 
         except json.JSONDecodeError:
