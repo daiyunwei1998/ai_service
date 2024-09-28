@@ -1,3 +1,4 @@
+from openai.types.chat import ChatCompletion
 from pydantic import BaseModel
 from openai import OpenAI
 
@@ -24,7 +25,7 @@ connections.connect("default", host=settings.MILVUS_HOST, port=settings.MILVUS_P
 #     query: str
 
 # Function to handle the RAG pipeline using OpenAI SDK
-def rag_pipeline(query_string: str, tenant_id: str, prompt_template: str) -> str:
+def rag_pipeline(query_string: str, tenant_id: str, prompt_template: str) -> ChatCompletion | str:
     # Detect the language of the query
     detected_lang = detect_language(query_string)
 
@@ -47,7 +48,7 @@ def rag_pipeline(query_string: str, tenant_id: str, prompt_template: str) -> str
     messages = messages, temperature= 0)
 
     if response.choices:
-        return response.choices[0].message.content
+        return response
     else:
         #TODO 轉人工客服
         return "Sorry, I couldn't generate a response."

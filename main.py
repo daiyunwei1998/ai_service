@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 from datetime import datetime, timezone
 import uvicorn
 from fastapi import FastAPI, HTTPException, Depends
@@ -14,6 +15,8 @@ from app.core.config import settings
 from app.api.v1.tenant_prompts import router as tenant_prompt_router
 from app.api.v1.rag import router as rag_router
 from app.core.database import engine, Base
+from app.schemas.ai_reply import AIReply
+from app.services.mongodb_service import mongodb_service
 from app.services.rag_service import rag_pipeline
 from contextlib import asynccontextmanager
 from app.core.prompt import PROMPT_TEMPLATE
@@ -64,13 +67,15 @@ async def lifespan(app: FastAPI):
 
         # Start consuming messages from the AI queue
         await queue.consume(on_message_received)
-        print(f"[*] Started consuming from queue: {AI_MESSAGE_QUEUE}")
+        logging.info(f"[*] Started consuming from queue: {AI_MESSAGE_QUEUE}")
 
         yield
     finally:
         # Close the RabbitMQ connection gracefully on shutdown
         await app.state.connection.close()
-        print("[*] Connection to RabbitMQ closed")
+        logging.info("[*] Connection to RabbitMQ closed")
+        await mongodb_service.close_connection()
+        logging.info("[*] Connection to mongodb closed")
 
 
 app = FastAPI(title="AI Service", lifespan=lifespan)
@@ -104,7 +109,19 @@ async def on_message_received(message: AbstractIncomingMessage):
 
             # Send the AI reply
             await send_acknowledgement_message(received_msg)  
-            await send_reply_message(received_msg)
+            reply_content, total_tokens = await send_reply_message(received_msg)
+
+            # Save the AI reply to MongoDB
+            ai_reply = AIReply(
+                original_message=received_msg.content,
+                user_query=received_msg.content,  # Assuming the original message is the user query
+                ai_reply=reply_content,
+                total_tokens=total_tokens,  # Simple token count, replace with actual token counting logic
+                tenant_id=received_msg.tenant_id
+            )
+
+            await mongodb_service.ensure_indexe(received_msg.tenant_id)
+            await mongodb_service.save_ai_reply(ai_reply)
 
         except json.JSONDecodeError:
             print("[!] Failed to decode message")
@@ -155,9 +172,11 @@ async def send_reply_message(received_msg: ReceivedMessage):
     Sends a reply message back to the customer with modified sender and SourceType.
     Utilizes the default exchange for direct messaging to user queues.
     """
-    reply_content: str = rag_pipeline(received_msg.content, received_msg.tenant_id, RAG_PROMPT_TEMPLATE)
+    response = rag_pipeline(received_msg.content, received_msg.tenant_id, RAG_PROMPT_TEMPLATE)
+    reply_content = response.choices[0].message
+    token = response.usage.total_tokens
     await publish_message_to_queue(received_msg, "CHAT", reply_content)
-
+    return reply_content, token
 
 async def send_acknowledgement_message(received_msg: ReceivedMessage):
     """
