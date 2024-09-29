@@ -15,6 +15,6 @@ async def generate_answer(request: SearchRequest):
     tenant_id = request.tenant_id
     try:
         response = rag_pipeline(query, tenant_id, prompt_template)
-        return {"data": response}
+        return {"data": response.choices[0].message.content}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
