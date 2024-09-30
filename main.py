@@ -13,7 +13,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.api.v1.tenant_prompts import router as tenant_prompt_router
-from app.api.v1.rag import router as rag_router
+from app.api.v1.rag import router as rag_router, input_token_price, output_token_price
 from app.core.database import engine, Base
 from app.schemas.ai_reply import AIReply
 from app.services.mongodb_service import mongodb_service
@@ -109,16 +109,14 @@ async def on_message_received(message: AbstractIncomingMessage):
 
             # Send the AI reply
             await send_acknowledgement_message(received_msg)  
-            reply_content, total_tokens = await send_reply_message(received_msg)
+            response = await send_reply_message(received_msg)
 
-            # Save the AI reply to MongoDB
-            ai_reply = AIReply(
-                receiver=received_msg.sender,
-                user_query=received_msg.content,  # Assuming the original message is the user query
-                ai_reply=reply_content,
-                total_tokens=total_tokens,  # Simple token count, replace with actual token counting logic
-                tenant_id=received_msg.tenant_id
-            )
+            receiver = received_msg.sender
+            query = received_msg.content
+            tenant_id = received_msg.tenant_id
+
+            ai_reply = AIReply.from_openai_completion(receiver, query, response, tenant_id, input_token_price,
+                                                      output_token_price)
 
             await mongodb_service.ensure_index(received_msg.tenant_id)
             await mongodb_service.save_ai_reply(ai_reply)
@@ -174,9 +172,8 @@ async def send_reply_message(received_msg: ReceivedMessage):
     """
     response = rag_pipeline(received_msg.content, received_msg.tenant_id, RAG_PROMPT_TEMPLATE)
     reply_content = response.choices[0].message.content
-    token = response.usage.total_tokens
     await publish_message_to_queue(received_msg, "CHAT", reply_content)
-    return reply_content, token
+    return response
 
 async def send_acknowledgement_message(received_msg: ReceivedMessage):
     """

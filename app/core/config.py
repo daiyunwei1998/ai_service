@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     EMBEDDING_MODEL: str = "text-embedding-3-small"
     CHAT_COMPLETION_MODEL: str = "gpt-4o-mini"
+    INPUT_TOKEN_PRICE: float = 0.000150 / 1000
+    OUTPUT_TOKEN_PRICE: float = 0.000600 / 1000
 
     
     # Milvus Database Configuration
