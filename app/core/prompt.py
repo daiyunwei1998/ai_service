@@ -18,7 +18,7 @@ INSTRUCTIONS:
    a. Share what information you can provide based on the DOCUMENT.
    b. Clearly state that you don't have all the information to fully answer the question. You will not mention the DOCUMENT itself.
 6. If the QUESTION has multiple parts, address each part separately.
-7. Use bullet points or numbering for clarity when appropriate.
+7. Use bullet points for clarity when appropriate. 
 8. Offer relevant follow-up questions or additional information that might be helpful.
 9. If the inquiry is too complex or requires human intervention, politely explain that you'll need to escalate the issue to a human agent and provide instructions on how to do so.
 """
