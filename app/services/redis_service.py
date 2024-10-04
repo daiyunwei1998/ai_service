@@ -1,8 +1,8 @@
+import logging
+
 import redis
 import json
-from typing import Optional
 
-from sqlalchemy.testing.plugin.plugin_base import logging
 
 from app.core.config import settings
 
@@ -58,6 +58,12 @@ def get_formatted_chat_history(
 
         # Retrieve session_id from Redis
         session_id = redis_client.get(session_key)
+
+        if session_id:  # Check if session_id is not None
+            session_id = session_id.replace('"', '')  # Remove double quotes
+
+
+        logging.info("session_id found while getting chat_history: " + session_id)
         if not session_id:
             raise ValueError("Session ID not found for the provided user_id.")
 
@@ -68,7 +74,7 @@ def get_formatted_chat_history(
         # Assuming the chat messages are stored as a Redis list
         chat_messages = redis_client.lrange(chat_key, 0, -1)
         if not chat_messages:
-            raise ValueError("No chat history found for the session.")
+            raise ValueError("No chat history found for the session." + chat_key)
 
         formatted_messages = []
         for message_str in chat_messages:

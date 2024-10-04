@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     TOPIC_EXCHANGE_NAME:str = "amq.topic"  # Topic exchange for customer messages
     AI_MESSAGE_QUEUE:str = "ai_message"
     SESSION_QUEUE_TEMPLATE:str = "messages-user{session_id}"
-    AGENT_QUEUE_TEMPLATE:str = "{tenant_id}.customer_message"
+    AGENT_QUEUE_TEMPLATE:str = "{tenant_id}.ai_summary"
 
     # MySQL Configuration (Loaded from .env file)
     MYSQL_USER: str

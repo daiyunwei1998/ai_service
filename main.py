@@ -3,11 +3,10 @@ import json
 import logging
 from datetime import datetime, timezone
 import uvicorn
-from fastapi import FastAPI, HTTPException, Depends
-from aio_pika import connect_robust, ExchangeType, Message, DeliveryMode
+from fastapi import FastAPI, HTTPException
+from aio_pika import connect_robust, Message, DeliveryMode
 from aio_pika.abc import AbstractIncomingMessage
-from langchain.memory.prompt import SUMMARY_PROMPT
-from pydantic import BaseModel
+from pydantic import BaseModel, constr, Field
 from typing import Optional
 
 from starlette.middleware.cors import CORSMiddleware
@@ -20,7 +19,7 @@ from app.schemas.ai_reply import AIReply
 from app.services.mongodb_service import mongodb_service
 from app.services.llm_service import rag_pipeline, summarize
 from contextlib import asynccontextmanager
-from app.core.prompt import RAG_PROMPT_TEMPLATE
+from app.core.prompt import RAG_PROMPT_TEMPLATE, SUMMARY_PROMPT_TEMPLATE
 
 RABBITMQ_HOST = settings.RABBITMQ_HOST
 RABBITMQ_PORT = settings.RABBITMQ_PORT
@@ -37,12 +36,12 @@ received_messages = []
 
 
 class ReceivedMessage(BaseModel):
-    session_id: str
+    session_id: Optional[str] = None
     sender: str
-    content: str
+    content: Optional[str] = None
     type: str
     tenant_id: str
-    user_type: str
+    user_type: Optional[str] = None
     receiver: Optional[str] = None
 
 
@@ -109,11 +108,10 @@ async def on_message_received(message: AbstractIncomingMessage):
             received_msg = ReceivedMessage(**msg_json)
             received_messages.append(received_msg)
 
-            if received_msg.type == "CHAT":
-                # Send the AI reply
-                await reply_with_rag(received_msg)
-            elif received_msg.type == "SUMMARY":
-                await reply_with_summary(received_msg)
+
+            # Send the AI reply
+            logging.info(f"[>] CHAT")
+            await reply_with_rag(received_msg)
 
         except json.JSONDecodeError:
             logging.error("[!] Failed to decode message")
@@ -134,19 +132,6 @@ async def reply_with_rag(received_msg: ReceivedMessage):
     await mongodb_service.ensure_index(received_msg.tenant_id)
     await mongodb_service.save_ai_reply(ai_reply)
 
-async def reply_with_summary(received_msg: ReceivedMessage):
-    await send_acknowledgement_message(received_msg)
-    response = await send_reply_message(received_msg)
-
-    receiver = received_msg.sender
-    query = received_msg.content
-    tenant_id = received_msg.tenant_id
-
-    ai_reply = AIReply.from_openai_completion(receiver, query, response, tenant_id, input_token_price,
-                                              output_token_price)
-
-    await mongodb_service.ensure_index(received_msg.tenant_id)
-    await mongodb_service.save_ai_reply(ai_reply)
 
 
 async def publish_message_to_queue(received_msg: ReceivedMessage, message_type: str, content: str = ""):
@@ -236,16 +221,6 @@ async def send_reply_message(received_msg: ReceivedMessage):
     await publish_message_to_queue(received_msg, "CHAT", reply_content)
     return response
 
-async def get_summary(received_msg: ReceivedMessage):
-    """
-    Sends a reply message back to the customer with modified sender and SourceType.
-    Utilizes the default exchange for direct messaging to user queues.
-    """
-    response = summarize(received_msg.tenant_id, SUMMARY_PROMPT, received_msg.receiver) # receiver is customerId for pick up messages
-    summary_content = response.choices[0].message.content
-    #await publish_message_to_queue(received_msg, "CHAT", reply_content)
-    return response
-
 async def send_acknowledgement_message(received_msg: ReceivedMessage):
     """
     Sends an acknowledgement message back to the customer to notify AI processing state.
@@ -253,6 +228,10 @@ async def send_acknowledgement_message(received_msg: ReceivedMessage):
     """
     await publish_message_to_queue(received_msg, "ACKNOWLEDGEMENT")
 
+async def handle_summary_request(request):
+    response = summarize(request.tenant_id, SUMMARY_PROMPT_TEMPLATE, request.customer_id)
+    # await publish_summary_to_queue(received_msg, reply_content)
+    return response
 
 
 @app.get("/status", summary="Check if messages have been received")
@@ -267,5 +246,50 @@ async def get_status():
 async def get_messages():
     return received_messages
 
-if __name__ == '__main__':
-    uvicorn.run(app="main:app", host="127.0.0.1", port=8001, reload=True)
+
+from pydantic import BaseModel, Field
+
+
+class SummaryRequest(BaseModel):
+    tenant_id: str = Field(
+        ...,
+        min_length=1,
+        description="The tenant ID (numeric)"
+    )
+    customer_id: str = Field(
+        ...,
+        min_length=1,
+        description="The Customer ID (alphanumeric, underscores, hyphens allowed)"
+    )
+
+    class Config:
+        from_attributes = True
+
+
+@app.post("/summary", response_model=dict)
+async def get_summary(request: SummaryRequest):
+    logging.info(f"[>] Request Summary - tenant_id: {request.tenant_id}, customer_id: {request.customer_id}")
+    response = await handle_summary_request(request)
+
+    receiver = "AGENT"
+    query = ""
+    tenant_id = request.tenant_id
+
+    ai_reply = AIReply.from_openai_completion(receiver, query, response, tenant_id, input_token_price,
+                                              output_token_price)
+
+    await mongodb_service.ensure_index(request.tenant_id)
+    await mongodb_service.save_ai_reply(ai_reply)
+
+    summary = response.choices[0].message.content
+
+    summary_data = {
+        "tenant_id": request.tenant_id,
+        "customer_id": request.customer_id,
+        "summary": summary
+    }
+
+    logging.info(f"[<] Response Summary - {summary_data}")
+    return summary_data
+
+

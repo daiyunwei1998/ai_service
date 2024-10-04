@@ -24,7 +24,7 @@ INSTRUCTIONS:
 """
 
 SUMMARY_PROMPT_TEMPLATE = """
-You are a customer service agent assistant. Your goal is to provide brief summary of user's needs and issues.
+You are a customer service agent assistant. Your goal is to provide brief summary of user's needs and issues. You will reply with traditional Chinese.
 
 HISTORY:
 {history}

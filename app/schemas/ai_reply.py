@@ -9,8 +9,8 @@ class TokenInfo(BaseModel):
     price_per_token: float  # Price per token
 
 class AIReply(BaseModel):
-    receiver: str
-    user_query: str
+    receiver: Optional[str] = ""
+    user_query: Optional[str] = ""
     ai_reply: str
     tokens: Dict[str, TokenInfo]  # Key could be 'input', 'output', or others
     total_tokens: int  # Can still store the total if needed

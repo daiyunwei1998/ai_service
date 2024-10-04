@@ -15,15 +15,8 @@ logger = logging.getLogger(__name__)
 client = OpenAI(api_key=settings.OPENAI_API_KEY)
 CHAT_COMPLETION_MODEL = settings.CHAT_COMPLETION_MODEL
 
-
-# Initialize the OpenAI API client with the API key
-
 # Initialize connection to Milvus
 connections.connect("default", host=settings.MILVUS_HOST, port=settings.MILVUS_PORT)
-
-# # Define the query input model
-# class QueryModel(BaseModel):
-#     query: str
 
 # Function to handle the RAG pipeline using OpenAI SDK
 def rag_pipeline(query_string: str, tenant_id: str, prompt_template: str) -> ChatCompletion | str:
@@ -57,8 +50,10 @@ def rag_pipeline(query_string: str, tenant_id: str, prompt_template: str) -> Cha
 def summarize(tenant_id: str, prompt_template: str, customer_id: str) -> ChatCompletion | str:
     # Get chat history from session (in redis)
     chat_history = get_formatted_chat_history(customer_id, tenant_id)
+    logging.info("chat history:" + chat_history)
     # Summary with LLM
     prompt = prompt_template.format(history = chat_history)
+    logging.info("prompt:" + prompt)
     messages = [
         {"role": "system", "content": prompt},
     ]
