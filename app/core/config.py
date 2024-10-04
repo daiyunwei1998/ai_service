@@ -1,4 +1,6 @@
 import os
+from typing import Optional
+
 from pydantic_settings import BaseSettings
 
 
@@ -25,6 +27,7 @@ class Settings(BaseSettings):
     TOPIC_EXCHANGE_NAME:str = "amq.topic"  # Topic exchange for customer messages
     AI_MESSAGE_QUEUE:str = "ai_message"
     SESSION_QUEUE_TEMPLATE:str = "messages-user{session_id}"
+    AGENT_QUEUE_TEMPLATE:str = "{tenant_id}.customer_message"
 
     # MySQL Configuration (Loaded from .env file)
     MYSQL_USER: str
@@ -41,6 +44,10 @@ class Settings(BaseSettings):
     MONGODB_URL:str = f"mongodb://{MONGO_USERNAME}:{MONGO_PASSWORD}@{MONGO_HOST}:27017/"
 
     DATABASE_NAME:str = "ai_replies_db"
+
+    REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
+    REDIS_PASSWORD: Optional[str] = os.getenv("REDIS_PASSWORD")
+    REDIS_PORT: int = int(os.getenv("REDIS_PORT", "6379"))
 
     @property
     def database_url(self):

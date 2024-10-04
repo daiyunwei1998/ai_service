@@ -5,10 +5,10 @@ from app.core.config import settings
 from app.schemas.ai_reply import AIReply
 from app.schemas.rag_schema import SearchRequest
 from app.services.mongodb_service import mongodb_service
-from app.services.rag_service import rag_pipeline
-from app.core.prompt import PROMPT_TEMPLATE
+from app.services.llm_service import rag_pipeline
+from app.core.prompt import RAG_PROMPT_TEMPLATE
 
-prompt_template = PROMPT_TEMPLATE
+prompt_template = RAG_PROMPT_TEMPLATE
 
 input_token_price = settings.INPUT_TOKEN_PRICE
 output_token_price = settings.OUTPUT_TOKEN_PRICE

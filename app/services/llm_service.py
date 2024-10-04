@@ -4,6 +4,7 @@ from openai import OpenAI
 
 from pymilvus import Collection, connections
 from app.services.language_service import detect_language
+from app.services.redis_service import get_formatted_chat_history
 from app.services.tenant_prompt_service import get_template_by_id, search_vectors_in_tenant_db
 from app.core.config import settings
 import logging
@@ -53,3 +54,18 @@ def rag_pipeline(query_string: str, tenant_id: str, prompt_template: str) -> Cha
         #TODO 轉人工客服
         return "Sorry, I couldn't generate a response."
 
+def summarize(tenant_id: str, prompt_template: str, customer_id: str) -> ChatCompletion | str:
+    # Get chat history from session (in redis)
+    chat_history = get_formatted_chat_history(customer_id, tenant_id)
+    # Summary with LLM
+    prompt = prompt_template.format(history = chat_history)
+    messages = [
+        {"role": "system", "content": prompt},
+    ]
+    response = client.chat.completions.create(model=CHAT_COMPLETION_MODEL,
+                                              messages=messages, temperature=0)
+
+    if response.choices:
+        return response
+    else:
+        return None;
