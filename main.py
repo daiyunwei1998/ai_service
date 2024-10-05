@@ -2,6 +2,8 @@ import asyncio
 import json
 import logging
 from datetime import datetime, timezone
+
+import aioredis
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from aio_pika import connect_robust, Message, DeliveryMode
@@ -16,6 +18,7 @@ from app.api.v1.tenant_prompts import router as tenant_prompt_router
 from app.api.v1.rag import router as rag_router, input_token_price, output_token_price
 from app.core.database import engine, Base
 from app.schemas.ai_reply import AIReply
+from app.schemas.chat_message import ChatMessage, MessageType, SourceType
 from app.services.mongodb_service import mongodb_service
 from app.services.llm_service import rag_pipeline, summarize
 from contextlib import asynccontextmanager
@@ -34,6 +37,13 @@ RAG_PROMPT_TEMPLATE = RAG_PROMPT_TEMPLATE
 # In-memory store for received messages (for prototype)
 received_messages = []
 
+
+REDIS_HOST = settings.REDIS_HOST
+REDIS_PASSWORD =  settings.REDIS_PASSWORD
+REDIS_PORT = settings.REDIS_PORT
+# Initialize Redis client (ensure this is done once, e.g., at startup)
+redis_url = f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}"
+redis_client = aioredis.from_url(redis_url, encoding="utf-8", decode_responses=True)
 
 class ReceivedMessage(BaseModel):
     session_id: Optional[str] = None
@@ -132,6 +142,34 @@ async def reply_with_rag(received_msg: ReceivedMessage):
     await mongodb_service.ensure_index(received_msg.tenant_id)
     await mongodb_service.save_ai_reply(ai_reply)
 
+    timestamp = datetime.utcnow().timestamp()
+    
+    # Create ChatMessage instance for the reply
+    chat_message = ChatMessage(
+        session_id=received_msg.session_id,
+        type=MessageType.CHAT,
+        content=response.choices[0].message.content,
+        sender="AI",
+        sender_name="AI",
+        receiver=received_msg.sender,
+        tenant_id=tenant_id,
+        timestamp=timestamp,
+        source=SourceType.AI,
+        user_type="agent",
+        customer_id=received_msg.sender
+    )
+
+    logging.info(f"[>] Chat message: {chat_message}")
+
+    # Serialize ChatMessage to JSON
+    chat_message_json = chat_message.to_json()
+
+    # Define Redis key following the Java service pattern
+    redis_key = f"tenant:{tenant_id}:chat:customer_messages:{received_msg.session_id}"
+
+    # Push the serialized message to Redis
+    await redis_client.rpush(redis_key, chat_message_json)
+    print(f"Saved message to Redis under key: {redis_key}")
 
 
 async def publish_message_to_queue(received_msg: ReceivedMessage, message_type: str, content: str = ""):
