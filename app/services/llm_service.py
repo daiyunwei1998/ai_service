@@ -143,9 +143,9 @@ def rag_pipeline(query_string: str, tenant_id: str, prompt_template: str, sessio
         )
         if handover_success:
             # Return a string indicating handover
-            return "I'm experiencing some issues connecting you to a human agent. Please wait..."
+            return "請稍等，重試轉接中..."
         else:
-            return "I'm experiencing some issues connecting you to a human agent. Please try again later."
+            return "客服轉接失敗，請重試。"
 
     # Check if the AI wants to call a function
     choice = response.choices[0]
@@ -173,14 +173,11 @@ def rag_pipeline(query_string: str, tenant_id: str, prompt_template: str, sessio
             )
 
             if handover_success:
-                # Inform the user about the handover
-                handover_message = "Transferring you to a human agent. Please wait..."
-                # To maintain return type, modify the response to include the handover message
-                # Alternatively, return a string directly
-                return "Transferring you to a human agent. Please wait..."
+                response.choices[0].message.content = "正在為您轉接人工客服，請稍等..."
+                return response
             else:
                 # Inform the user about the handover failure
-                failure_message = "I'm experiencing some issues connecting you to a human agent. Please try again later."
+                failure_message = "很抱歉，目前無法為您轉接人工客服，請稍後"
                 return failure_message
 
     elif choice.message.content:
