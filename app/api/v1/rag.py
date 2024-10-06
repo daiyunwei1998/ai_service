@@ -20,7 +20,7 @@ async def generate_answer(request: SearchRequest):
     query = request.query
     tenant_id = request.tenant_id
     try:
-        response = rag_pipeline(query, tenant_id, prompt_template)
+        response = rag_pipeline(query, tenant_id, prompt_template, "","")
 
         ai_reply = AIReply.from_openai_completion("ADMIN", query, response, tenant_id, input_token_price, output_token_price)
 

@@ -253,7 +253,7 @@ async def send_reply_message(received_msg: ReceivedMessage):
     Sends a reply message back to the customer with modified sender and SourceType.
     Utilizes the default exchange for direct messaging to user queues.
     """
-    response = rag_pipeline(received_msg.content, received_msg.tenant_id, RAG_PROMPT_TEMPLATE)
+    response = rag_pipeline(received_msg.content, received_msg.tenant_id, RAG_PROMPT_TEMPLATE, received_msg.session_id, received_msg.sender)
     reply_content = response.choices[0].message.content
     await publish_message_to_queue(received_msg, "CHAT", reply_content)
     return response

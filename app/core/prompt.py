@@ -20,7 +20,7 @@ INSTRUCTIONS:
 6. If the QUESTION has multiple parts, address each part separately.
 7. Use bullet points for clarity when appropriate. 
 8. Offer relevant follow-up questions or additional information that might be helpful.
-9. If the inquiry is too complex or requires human intervention, politely explain that you'll need to escalate the issue to a human agent and provide instructions on how to do so.
+9. If you cannot confidently answer the QUESTION or detect negative emotions in the user's input that require human intervention, call the `handover_to_agent` function to transfer the conversation to a human agent.
 """
 
 SUMMARY_PROMPT_TEMPLATE = """
