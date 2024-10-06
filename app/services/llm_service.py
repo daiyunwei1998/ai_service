@@ -183,7 +183,7 @@ def rag_pipeline(query_string: str, tenant_id: str, prompt_template: str, sessio
                 failure_message = "I'm experiencing some issues connecting you to a human agent. Please try again later."
                 return failure_message
 
-    elif choice.message.get("content"):
+    elif choice.message.content:
         # If the AI provided a regular response, return it as is
         return response  # Return the original ChatCompletion object
 
