@@ -1,10 +1,9 @@
-import asyncio
+import time
 import json
 import logging
 from datetime import datetime, timezone
 
 import aioredis
-import uvicorn
 from fastapi import FastAPI, HTTPException
 from aio_pika import connect_robust, Message, DeliveryMode
 from aio_pika.abc import AbstractIncomingMessage
@@ -142,8 +141,8 @@ async def reply_with_rag(received_msg: ReceivedMessage):
     await mongodb_service.ensure_index(received_msg.tenant_id)
     await mongodb_service.save_ai_reply(ai_reply)
 
-    timestamp = datetime.utcnow().timestamp()
-    
+    timestamp  = time.time()
+
     # Create ChatMessage instance for the reply
     chat_message = ChatMessage(
         session_id=received_msg.session_id,
