@@ -254,7 +254,11 @@ async def send_reply_message(received_msg: ReceivedMessage):
     Utilizes the default exchange for direct messaging to user queues.
     """
     response = rag_pipeline(received_msg.content, received_msg.tenant_id, RAG_PROMPT_TEMPLATE, received_msg.session_id, received_msg.sender)
-    reply_content = response.choices[0].message.content
+
+    if isinstance(response, str):
+        reply_content = response
+    else:
+        reply_content = response.choices[0].message.content
     await publish_message_to_queue(received_msg, "CHAT", reply_content)
     return response
 
