@@ -270,10 +270,15 @@ async def send_acknowledgement_message(received_msg: ReceivedMessage):
     await publish_message_to_queue(received_msg, "ACKNOWLEDGEMENT")
 
 async def handle_summary_request(request):
-    response = summarize(request.tenant_id, SUMMARY_PROMPT_TEMPLATE, request.customer_id)
-    # await publish_summary_to_queue(received_msg, reply_content)
-    return response
-
+    try:
+        response = summarize(request.tenant_id, SUMMARY_PROMPT_TEMPLATE, request.customer_id)
+        return response
+    except ValueError as ve:
+        logging.warning(f"No chat history found: {ve}")
+        raise HTTPException(status_code=404, detail=str(ve))
+    except Exception as exc:
+        logging.error(f"Error handling summary request: {exc}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @app.get("/status", summary="Check if messages have been received")
 async def get_status():
