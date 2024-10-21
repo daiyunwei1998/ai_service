@@ -1,4 +1,6 @@
 import os
+from typing import Optional
+
 from pydantic_settings import BaseSettings
 
 
@@ -7,6 +9,8 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     EMBEDDING_MODEL: str = "text-embedding-3-small"
     CHAT_COMPLETION_MODEL: str = "gpt-4o-mini"
+    INPUT_TOKEN_PRICE: float = 0.000150 / 1000
+    OUTPUT_TOKEN_PRICE: float = 0.000600 / 1000
 
     
     # Milvus Database Configuration
@@ -14,7 +18,7 @@ class Settings(BaseSettings):
     MILVUS_PORT: int = os.getenv("MILVUS_PORT", 19530)
 
     # Rabbit MQ
-    RABBITMQ_HOST: str = "localhost" #"203.204.185.67"
+    RABBITMQ_HOST: str = os.getenv("RABBITMQ_HOST")
     RABBITMQ_PORT: int = 5672
     RABBITMQ_USERNAME: str = "root"
     RABBITMQ_PASSWORD:str = "admin1234"
@@ -23,6 +27,7 @@ class Settings(BaseSettings):
     TOPIC_EXCHANGE_NAME:str = "amq.topic"  # Topic exchange for customer messages
     AI_MESSAGE_QUEUE:str = "ai_message"
     SESSION_QUEUE_TEMPLATE:str = "messages-user{session_id}"
+    AGENT_QUEUE_TEMPLATE:str = "{tenant_id}.ai_summary"
 
     # MySQL Configuration (Loaded from .env file)
     MYSQL_USER: str
@@ -30,6 +35,19 @@ class Settings(BaseSettings):
     MYSQL_HOST: str
     MYSQL_PORT: int
     MYSQL_DB: str
+
+    # MongoDB
+    MONGO_HOST:str  = os.getenv('MONGO_HOST', 'localhost')
+    MONGO_USERNAME:str = os.getenv('MONGO_USERNAME', 'default_username')
+    MONGO_PASSWORD:str = os.getenv('MONGO_PASSWORD', 'default_password')
+
+    MONGODB_URL:str = f"mongodb://{MONGO_USERNAME}:{MONGO_PASSWORD}@{MONGO_HOST}:27017/"
+
+    DATABASE_NAME:str = "ai_replies_db"
+
+    REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
+    REDIS_PASSWORD: Optional[str] = os.getenv("REDIS_PASSWORD")
+    REDIS_PORT: int = int(os.getenv("REDIS_PORT", "6379"))
 
     @property
     def database_url(self):
